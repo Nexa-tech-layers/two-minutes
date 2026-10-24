@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0B0B0C">
+<title>TWO MINUTES</title>
+<style>
+  :root{
+    --ground:#0B0B0C; --bone:#EFEAE0; --gold:#D9B778; --hot:#E85D3A;
+    --dim:rgba(239,234,224,.42);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;background:var(--ground);color:var(--bone);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    overscroll-behavior:none;}
+  body{display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100%;height:100dvh;max-width:480px;overflow:hidden;
+    background:radial-gradient(120% 80% at 50% 0%, #16161700 0%, #0B0B0C 70%);
+    display:flex;flex-direction:column;}
+  .tag{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);left:12px;z-index:40;
+    font:600 9px/1 ui-monospace,monospace;letter-spacing:.22em;color:rgba(239,234,224,.30);
+    border:1px solid rgba(239,234,224,.14);border-radius:99px;padding:5px 9px;}
+  .streak{position:absolute;top:calc(env(safe-area-inset-top,0px) + 9px);right:12px;z-index:40;
+    font:700 11px/1 ui-monospace,monospace;letter-spacing:.1em;color:var(--gold);}
+  .streak span{color:var(--bone);}
+  canvas#cracks{position:absolute;inset:0;width:100%;height:100%;z-index:10;pointer-events:none;}
+  .screen{position:absolute;inset:0;display:none;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 74px) 22px calc(env(safe-area-inset-bottom,0px) + 22px);
+    z-index:20;}
+  .screen.on{display:flex;}
+  #s-live{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 138px);}
+  h1{font-size:11px;letter-spacing:.34em;font-weight:700;color:var(--dim);margin:0 0 6px;}
+  .big{font-size:clamp(46px,15vw,66px);font-weight:800;letter-spacing:-.02em;line-height:.95;margin:0;}
+  .sub{font-size:13.5px;line-height:1.5;color:var(--dim);margin:14px 0 0;max-width:34ch;}
+  .spacer{flex:1;}
+  .rule{height:1px;background:rgba(217,183,120,.30);margin:22px 0 18px;}
+  .tick{font:600 12px/1.7 ui-monospace,monospace;color:var(--dim);}
+  .tick b{color:var(--bone);font-weight:600;}
+  .wallfeed{height:132px;overflow:hidden;position:relative;
+    mask-image:linear-gradient(#0000,#000 22%,#000 78%,#0000);}
+  .wallfeed div{font:500 12px/1.9 ui-monospace,monospace;color:rgba(239,234,224,.55);}
+  .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(217,183,120,.35);
+    border-radius:99px;padding:9px 14px;font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.16em;
+    color:var(--gold);}
+  button{font:inherit;border:0;background:none;color:inherit;cursor:pointer;}
+  .cta{border:1px solid rgba(239,234,224,.22);border-radius:99px;padding:13px 22px;
+    font:700 11px/1 ui-monospace,monospace;letter-spacing:.2em;color:var(--bone);}
+  .cta.ghost{opacity:.55;}
+  /* tap surface */
+  #tapwrap{position:absolute;inset:0;z-index:30;display:none;}
+  #tapwrap.on{display:block;}
+  #tapwrap .aim{position:absolute;left:50%;top:64%;transform:translate(-50%,-50%);
+    text-align:center;pointer-events:none;}
+  #tapwrap .aim .hint{font:700 11px/1 ui-monospace,monospace;letter-spacing:.3em;color:rgba(239,234,224,.5);}
+  .integrity{position:absolute;left:22px;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);
+    z-index:35;display:none;}
+  .integrity.on{display:block;}
+  .integrity .bar{height:4px;background:rgba(239,234,224,.10);border-radius:99px;overflow:hidden;}
+  .integrity .fill{height:100%;width:100%;background:linear-gradient(90deg,var(--hot),var(--gold));}
+  .integrity .row{display:flex;justify-content:space-between;margin-top:9px;
+    font:700 10.5px/1 ui-monospace,monospace;letter-spacing:.16em;color:var(--dim);}
+  #combo{position:absolute;left:0;right:0;top:46%;text-align:center;z-index:34;pointer-events:none;
+    font:800 46px/1 -apple-system,sans-serif;letter-spacing:-.03em;color:var(--gold);opacity:0;}
+  .row2{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:22px;}
+  .rank{font:800 64px/1 -apple-system,sans-serif;letter-spacing:-.03em;color:var(--bone);}
+  .rank em{font-style:normal;font-size:13px;letter-spacing:.12em;color:var(--dim);display:block;margin-top:8px;
+    font-family:ui-monospace,monospace;font-weight:600;}
+  .lb{margin-top:20px;}
+  .lb .l{display:flex;justify-content:space-between;font:600 12.5px/2 ui-monospace,monospace;
+    color:rgba(239,234,224,.62);}
+  .lb .l.me{color:var(--gold);}
+  .lb .l i{font-style:normal;color:rgba(239,234,224,.34);}
+  .note{margin:16px 0 0;font:500 9.5px/1.5 ui-monospace,monospace;letter-spacing:.07em;
+    color:rgba(239,234,224,.26);max-width:40ch;}
+  .row2.stack{flex-direction:column;align-items:stretch;gap:9px;}
+  .row2.stack .cta{text-align:center;padding:16px 22px;}
+  .flash{position:absolute;inset:0;background:var(--bone);opacity:0;z-index:36;pointer-events:none;}
+  .shake{animation:sh .28s linear;}
+  @keyframes sh{0%,100%{transform:translate(0,0)}25%{transform:translate(3px,-2px)}
+    50%{transform:translate(-4px,2px)}75%{transform:translate(2px,3px)}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="tag">PROTOTYPE · CROWD SIMULATED</div>
+  <div class="streak" id="streakTop">STREAK <span id="streakN">7</span></div>
+  <canvas id="cracks"></canvas>
+  <div class="flash" id="flash"></div>
+
+  <!-- 1. WAIT -->
+  <div class="screen on" id="s-wait">
+    <h1>THE NEXT WALL OPENS IN</h1>
+    <p class="big" id="cd">--:--</p>
+    <p class="sub">One wall. One shared minute. Two minutes to break through it — everyone at the same time, and the score reveals after.</p>
+    <div class="rule"></div>
+    <div class="tick">GATHERING NOW &nbsp;<b id="waiting">2,481</b><br>CRACKED TODAY &nbsp;<b id="todayWait">18,204</b></div>
+    <div class="spacer"></div>
+    <div class="wallfeed" id="feed"></div>
+    <div class="row2">
+      <button class="cta" id="openNow">OPEN THE WALL NOW →</button>
+      <span class="pill" id="sched">NEXT 20:00</span>
+    </div>
+    <p class="note">Prototype for review — the crowd is simulated, there are no real users yet.</p>
+  </div>
+
+  <!-- 2. LIVE -->
+  <div class="screen" id="s-live">
+    <h1>THE WALL IS OPEN · <span id="liveClock">2:00</span> LEFT</h1>
+    <p class="big">BREAK IT.</p>
+    <p class="sub">Strike the wall. Every tap widens the crack — but stop and it heals. Keep the combo alive for two minutes.</p>
+    <div class="spacer"></div>
+    <div class="tick">STRIKES &nbsp;<b id="hits">0</b><br>IN HERE WITH YOU &nbsp;<b id="liveCrowd">3,140</b></div>
+  </div>
+  <div id="tapwrap">
+    <div class="aim"><div class="hint" id="aimHint">TAP TO STRIKE</div></div>
+  </div>
+  <div id="combo"></div>
+  <div class="integrity" id="integ">
+    <div class="bar"><div class="fill" id="integFill"></div></div>
+    <div class="row"><span>WALL INTEGRITY</span><span id="integPct">100%</span></div>
+  </div>
+
+  <!-- 3. REVEAL -->
+  <div class="screen" id="s-reveal">
+    <h1 id="revealKicker">YOU CRACKED IT</h1>
+    <p class="big" id="scoreBig">0</p>
+    <p class="sub" id="revealSub">Scored on strikes and how long you held the combo. The board is in.</p>
+    <div class="rule"></div>
+    <div class="rank"><span id="rankN">#412</span><em id="rankOf">OF 3,140 TODAY</em></div>
+    <div class="lb" id="board"></div>
+    <div class="spacer"></div>
+    <button class="cta" id="toClose">SEE TODAY'S WALL →</button>
+  </div>
+
+  <!-- 4. CLOSED -->
+  <div class="screen" id="s-closed">
+    <h1>THE WALL CLOSED AT 20:02</h1>
+    <p class="big"><span id="finalCracked">19,408</span></p>
+    <p class="sub">people broke through today. You were one of them — <b id="finalRank">#412</b>.</p>
+    <div class="rule"></div>
+    <div class="tick">YOUR STREAK &nbsp;<b id="streakEnd">8</b> DAYS<br>YOUR STRIKES &nbsp;<b id="finalHits">0</b><br>NEXT WALL IN &nbsp;<b id="nextIn">--:--</b></div>
+    <div class="spacer"></div>
+    <div class="row2 stack">
+      <button class="cta" id="again">BACK TO THE WALL</button>
+      <button class="cta ghost" id="shareBtn">SHARE MY RANK</button>
+    </div>
+  </div>
+
+
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const NAMES = ["tunde","adaeze","kelvin","bisi","chidi","nneka","seyi","ifeoma","kunle","amaka",
+    "dapo","zainab","emeka","tola","uche","halima","femi","obinna","yemi","grace","musa","ngozi",
+    "sola","ruth","tobi","ada","jide","kemi","pascal","ejiro","osaretin","brai","tonia","efosa",
+    "iyke","chioma","bode","damola","uche","adaeze","otega","peremobo","tarila","doubra"];
+  const rnd = (a,b)=>a+Math.random()*(b-a);
+  const fmt = n=>n.toLocaleString("en-US");
+  const pick = a=>a[Math.floor(Math.random()*a.length)];
+
+  // ---------- audio (no files) ----------
+  let AC=null, RUM=null;
+  function ac(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
+  function strike(i){
+    const c=ac(); if(!c) return;
+    const n=Math.floor(rnd(0,1200)+300+i*6);
+    const o=c.createOscillator(), g=c.createGain();
+    o.type="triangle"; o.frequency.value=n;
+    g.gain.setValueAtTime(.0001,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(.16,c.currentTime+.006);
+    g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.16);
+    o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime+.18);
+    // noise tick
+    const b=c.createBuffer(1,700,c.sampleRate), d=b.getChannelData(0);
+    for(let k=0;k<700;k++) d[k]=(Math.random()*2-1)*(1-k/700);
+    const s=c.createBufferSource(), f=c.createBiquadFilter(), g2=c.createGain();
+    s.buffer=b; f.type="bandpass"; f.frequency.value=rnd(1800,4200); f.Q.value=1.1;
+    g2.gain.value=.14; s.connect(f).connect(g2).connect(c.destination); s.start();
+  }
+  function rumble(on){
+    const c=ac(); if(!c) return;
+    if(on && !RUM){
+      const o=c.createOscillator(), g=c.createGain();
+      o.type="sawtooth"; o.frequency.value=46;
+      g.gain.value=.0001; g.gain.linearRampToValueAtTime(.05,c.currentTime+.4);
+      o.connect(g).connect(c.destination); o.start(); RUM={o,g};
+    } else if(!on && RUM){
+      try{ RUM.g.gain.linearRampToValueAtTime(.0001,c.currentTime+.3); RUM.o.stop(c.currentTime+.4);}catch(e){}
+      RUM=null;
+    }
+  }
+  function breakSound(){
+    const c=ac(); if(!c) return;
+    const b=c.createBuffer(1,c.sampleRate*1.2,c.sampleRate), d=b.getChannelData(0);
+    for(let k=0;k<d.length;k++){ const t=k/d.length; d[k]=(Math.random()*2-1)*Math.pow(1-t,2.2); }
+    const s=c.createBufferSource(); s.buffer=b;
+    const f=c.createBiquadFilter(); f.type="lowpass"; f.frequency.value=1400;
+    const g=c.createGain(); g.gain.value=.5;
+    s.connect(f).connect(g).connect(c.destination); s.start();
+    [880,1174,1568].forEach((hz,i)=>{
+      const o=c.createOscillator(), gg=c.createGain();
+      o.type="sine"; o.frequency.value=hz;
+      gg.gain.setValueAtTime(.0001,c.currentTime+i*.09);
+      gg.gain.exponentialRampToValueAtTime(.13,c.currentTime+i*.09+.02);
+      gg.gain.exponentialRampToValueAtTime(.0001,c.currentTime+i*.09+.9);
+      o.connect(gg).connect(c.destination); o.start(c.currentTime+i*.09); o.stop(c.currentTime+i*.09+1);
+    });
+  }
+  const buzz = ms=>{ try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} };
+
+  // ---------- canvas cracks ----------
+  const cv=$("cracks"), ctx=cv.getContext("2d");
+  let W=0,H=0,DPR=1, segs=[], tips=[];
+  function size(){ DPR=Math.min(window.devicePixelRatio||1,2); W=cv.clientWidth; H=cv.clientHeight;
+    cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0); }
+  window.addEventListener("resize",()=>{ size(); });
+  function nearestTip(x,y){
+    let best=null,bd=1e9;
+    for(const t of tips){ const d=(t.x-x)*(t.x-x)+(t.y-y)*(t.y-y); if(d<bd){bd=d;best=t;} }
+    return best;
+  }
+  function strikeCrack(x,y){
+    let t=nearestTip(x,y);
+    if(!t || Math.hypot(t.x-x,t.y-y)>210){
+      t={x,y,a:Math.random()*Math.PI*2,w:2.0};
+      tips.push(t); if(tips.length>7) tips.shift();
+    }
+    const toward=Math.atan2(y-t.y,x-t.x);
+    t.a=t.a*0.30+toward*0.70;
+    let px=t.x, py=t.y, a=t.a;
+    const n=3+Math.floor(Math.random()*3);
+    for(let i=0;i<n;i++){
+      a+=(Math.random()-0.5)*0.9;
+      const len=rnd(20,62)*(1-i*0.07);
+      const nx=px+Math.cos(a)*len, ny=py+Math.sin(a)*len;
+      segs.push({x1:px,y1:py,x2:nx,y2:ny,l:1,wd:Math.max(.6,t.w*(1-i*0.12))});
+      if(Math.random()<0.34){
+        const b=a+(Math.random()<.5?0.7:-0.7), l2=len*rnd(.35,.8);
+        segs.push({x1:nx,y1:ny,x2:nx+Math.cos(b)*l2,y2:ny+Math.sin(b)*l2,l:1,wd:.7});
+      }
+      px=nx; py=ny;
+    }
+    t.x=px; t.y=py; t.a=a; t.w=Math.max(.7,t.w*0.95);
+    if(segs.length>1500) segs.splice(0,segs.length-1500);
+  }
+  function renderSegs(dt){
+    ctx.clearRect(0,0,W,H);
+    ctx.lineCap="round";
+    for(let i=segs.length-1;i>=0;i--){
+      const s=segs[i];
+      if(dt) s.l -= dt*0.5;
+      if(s.l<=0){ segs.splice(i,1); continue; }
+      const k=0.35+0.65*s.l;
+      const x2=s.x1+(s.x2-s.x1)*k, y2=s.y1+(s.y2-s.y1)*k;
+      ctx.globalAlpha=0.20+0.48*s.l; ctx.strokeStyle="#EFEAE0"; ctx.lineWidth=s.wd;
+      ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(x2,y2); ctx.stroke();
+      ctx.globalAlpha=0.30+0.62*s.l; ctx.strokeStyle="#D9B778"; ctx.lineWidth=s.wd*0.45;
+      ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(x2,y2); ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  // ---------- wall feed ----------
+  const feed=$("feed");
+  function feedLine(t){
+    const d=document.createElement("div"); d.textContent=t; feed.appendChild(d);
+    if(feed.childNodes.length>40) feed.removeChild(feed.firstChild);
+  }
+  setInterval(()=>{
+    feedLine(pick(NAMES)+" just cracked the wall");
+    if(feed.scrollHeight>feed.clientHeight) feed.scrollTop=feed.scrollHeight;
+  },1200);
+
+  // ---------- schedule ----------
+  const PERIOD_MIN=5;               // prototype: wall opens every 5 minutes
+  let opensAt=0, state="wait", streak=7;
+  function nextOpen(now){
+    const d=new Date(now); d.setSeconds(0,0);
+    const add=PERIOD_MIN-(d.getMinutes()%PERIOD_MIN);
+    d.setMinutes(d.getMinutes()+add); return d.getTime();
+  }
+  function clk(ms){ const s=Math.max(0,Math.ceil(ms/1000));
+    return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
+  opensAt=nextOpen(Date.now());
+  $("sched").textContent="NEXT "+new Date(opensAt).toTimeString().slice(0,5);
+  setInterval(()=>{
+    if(state==="wait"){
+      const left=opensAt-Date.now();
+      $("cd").textContent=left<=0?"00:00":clk(left);
+      if(left<=0) startLive();
+    } else if(state==="closed"){
+      $("nextIn").textContent=clk(opensAt-Date.now());
+    }
+  },200);
+
+  // ---------- crowd sim ----------
+  let waiting=2481, today=18204;
+  setInterval(()=>{
+    waiting=Math.max(400,waiting+Math.floor(rnd(-14,26)));
+    today+=Math.floor(rnd(2,19));
+    $("waiting").textContent=fmt(waiting); $("todayWait").textContent=fmt(today);
+  },900);
+
+  // ---------- live play ----------
+  let hits=0, depth=0, integ=100, combo=0, lastHit=0, crowd=0, tEnd=0, raf=null, last=0, dead=false;
+  function startLive(){
+    if(state==="live"||state==="reveal") return;
+    state="live"; segs=[]; tips=[]; hits=0; depth=0; integ=100; combo=0; dead=false;
+    crowd=Math.floor(rnd(2600,5200));
+    tEnd=Date.now()+120000;
+    show("s-live"); $("tapwrap").classList.add("on"); $("integ").classList.add("on");
+    $("hits").textContent="0";
+    $("liveCrowd").textContent=fmt(crowd); $("aimHint").textContent="TAP TO STRIKE";
+    ac(); rumble(true); last=performance.now();
+    if(raf) cancelAnimationFrame(raf);
+    raf=requestAnimationFrame(loop);
+  }
+  function loop(t){
+    const dt=Math.min(.05,(t-last)/1000); last=t;
+    const msLeft=tEnd-Date.now();
+    $("liveClock").textContent=clk(msLeft);
+    const idle=(Date.now()-lastHit)/1000;
+    if(idle>0.60){ integ=Math.min(100,integ+dt*7*(1+Math.min(idle,3)*0.25)); combo=0; setCombo(0); }
+    depth=Math.max(0,Math.min(100,100-integ));
+    $("integFill").style.width=integ+"%"; $("integPct").textContent=Math.round(integ)+"%";
+    renderSegs(dt);
+    if((integ<=0) && !dead){ dead=true; finish(true); return; }
+    if(msLeft<=0){ finish(false); return; }
+    raf=requestAnimationFrame(loop);
+  }
+  function setCombo(c){
+    const el=$("combo");
+    if(c<2){ el.style.opacity=0; return; }
+    el.textContent="×"+c; el.style.opacity=1;
+    el.animate([{transform:"scale(.8)",opacity:.2},{transform:"scale(1)",opacity:1}],{duration:120});
+  }
+  function hit(x,y){
+    if(state!=="live"||dead) return;
+    const now=Date.now();
+    if((now-lastHit)<1300) combo++; else combo=1;
+    lastHit=now;
+    hits++; $("hits").textContent=fmt(hits);
+    strikeCrack(x,y);
+    if(hits===3) $("aimHint").textContent="";
+    integ=Math.max(0,integ - (0.9+Math.min(combo,20)*0.45));
+    strike(Math.min(combo,30)); buzz(6+Math.min(combo,18));
+    setCombo(combo);
+    if(combo>0 && combo%7===0){ $("stage").classList.add("shake");
+      setTimeout(()=>$("stage").classList.remove("shake"),300); }
+    if(integ<=0.001){ dead=true; finish(true); }
+  }
+  $("tapwrap").addEventListener("pointerdown",e=>{
+    if(state!=="live") return;
+    e.preventDefault();
+    const r=$("stage").getBoundingClientRect();
+    hit(e.clientX-r.left, e.clientY-r.top);
+  },{passive:false});
+
+  // ---------- finish ----------
+  let score=0;
+  function finish(cracked){
+    if(raf) cancelAnimationFrame(raf);
+    rumble(false);
+    const held=Math.max(0,Math.min(120,Math.round((Date.now()-(tEnd-120000))/1000)));
+    score=Math.max(1,Math.round(hits*(1+combo/8)*(cracked?1.15:0.9)));
+    opensAt=nextOpen(Date.now());
+    $("finalHits").textContent=fmt(hits);
+    const crowdEnd=Math.floor(crowd+rnd(80,600));
+    const crackedToday=Math.floor(rnd(17000,23000));
+    const rank=cracked?9+Math.floor(Math.pow(Math.random(),2.2)*crackedToday*0.06)
+                      :Math.floor(crackedToday*rnd(.55,.85));
+
+    $("flash").animate([{opacity:cracked?.85:0},{opacity:0}],{duration:cracked?420:200,easing:"ease-out"});
+    if(cracked){ breakSound(); buzz([12,40,12]); }
+    $("tapwrap").classList.remove("on"); $("integ").classList.remove("on"); setCombo(0);
+    $("revealKicker").textContent=cracked?"YOU CRACKED IT":"THE WALL CLOSED ON YOU";
+    $("scoreBig").textContent=fmt(score);
+    $("revealSub").textContent=cracked
+      ? "Strike score, combo-weighted. You broke through in "+held+" seconds — the board is in."
+      : "You stopped too long and it healed. "+(100-Math.round(integ))+"% was all you got. The board is in.";
+    $("rankN").textContent="#"+fmt(rank); $("rankOf").textContent="OF "+fmt(crackedToday)+" TODAY";
+
+    const board=$("board"); board.innerHTML="";
+    const others=Array.from({length:8},()=>({n:pick(NAMES)+Math.floor(rnd(2,99)),
+      s:Math.max(score+1,Math.round(score*rnd(1.06,3.1)))}))
+      .sort((a,b)=>b.s-a.s);
+    others.forEach((r,i)=>{
+      const d=document.createElement("div"); d.className="l";
+      d.innerHTML="<span><i>"+(i+1)+"</i> &nbsp;"+r.n+"</span><span>"+fmt(r.s)+"</span>";
+      board.appendChild(d);
+    });
+    const me=document.createElement("div"); me.className="l me";
+    me.innerHTML="<span><i>"+fmt(rank)+"</i> &nbsp;you</span><span>"+fmt(score)+"</span>";
+    board.appendChild(me);
+    $("finalCracked").textContent=fmt(crackedToday);
+    $("finalRank").textContent="#"+fmt(rank);
+    if(cracked){ streak++; today+=1; }
+    $("streakN").textContent=streak; $("streakEnd").textContent=streak;
+    state="reveal"; show("s-reveal"); segs=[]; tips=[]; ctx.clearRect(0,0,W,H);
+  }
+
+  function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.remove("on")); $(id).classList.add("on"); }
+
+  $("openNow").addEventListener("click",()=>{ ac(); startLive(); });
+  $("toClose").addEventListener("click",()=>{ state="closed"; segs=[]; tips=[]; ctx.clearRect(0,0,W,H); show("s-closed"); });
+  $("again").addEventListener("click",()=>{
+    opensAt=nextOpen(Date.now()); state="wait"; show("s-wait"); ctx.clearRect(0,0,W,H); segs=[];
+    $("cd").textContent=clk(Math.max(0,opensAt-Date.now()));
+    $("sched").textContent="NEXT "+new Date(opensAt).toTimeString().slice(0,5);
+  });
+  $("shareBtn").addEventListener("click",async()=>{
+    const txt="I cracked the wall today — "+$("finalRank").textContent+" of "+$("finalCracked").textContent+". Two minutes, everyone at once.";
+    try{ if(navigator.share) await navigator.share({title:"TWO MINUTES",text:txt});
+      else { await navigator.clipboard.writeText(txt); $("shareBtn").textContent="COPIED →"; } }catch(e){}
+  });
+
+  size();
+  window.__t = {segs:()=>segs.length, tips:()=>tips.length, st:()=>state, integ:()=>integ,
+    wh:()=>[W,H,DPR], cw:()=>[cv.clientWidth,cv.clientHeight]};
+  $("cd").textContent=clk(opensAt-Date.now());
+  for(let i=0;i<8;i++) feedLine(pick(NAMES)+" just cracked the wall");
+})();
+</script>
+</body>
+</html>
